@@ -75,7 +75,7 @@ if [ "$action" == 'create' ]
 			server {
 				listen 80;
         		server_name $domain www.$domain;
-        		return 301 https://$host$request_uri;
+        		return 301 https://\$$host\$$request_uri;
 			}
 			server {
 				listen 443 ssl;
@@ -125,7 +125,7 @@ if [ "$action" == 'create' ]
 					fastcgi_pass unix:/run/php/php7.0-fpm.sock;
 					fastcgi_index index.php;
 					include fastcgi_params;
-					fastcgi_param  SCRIPT_FILENAME  \$document_root\$fastcgi_script_name;
+					fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
 				}
 
 				location ~ /\.ht {
