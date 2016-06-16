@@ -29,12 +29,6 @@ do
 	read domain
 done
 
-while [ "$email" == "" ]
-do
-	echo -e $"Please provide a valid e-mail."
-	read email
-done
-
 if [ "$rootDir" == "" ]; then
 	rootDir=${domain//./}
 fi
@@ -54,6 +48,12 @@ if [ "$action" == 'create' ]
 			exit;
 		fi
 
+		while [ "$email" == "" ]
+		do
+			echo -e $"Please provide a valid e-mail."
+			read email
+		done
+
 		### check if directory exists or not
 		if ! [ -d $userDir$rootDir ]; then
 			### create the directory
@@ -61,12 +61,12 @@ if [ "$action" == 'create' ]
 			### give permission to root dir
 			chmod 755 $userDir$rootDir
 			### write test file in the new domain dir
-			if ! echo "<?php echo phpinfo(); ?>" > $userDir$rootDir/phpinfo.php
+			if ! echo "<?php echo phpinfo(); ?>" > $userDir$rootDir/index.php
 				then
-					echo $"ERROR: Not able to write in file $userDir/$rootDir/phpinfo.php. Please check permissions."
+					echo $"ERROR: Not able to write in file $userDir/$rootDir/index.php. Please check permissions."
 					exit;
 			else
-					echo $"Added content to $userDir$rootDir/phpinfo.php."
+					echo $"Added content to $userDir$rootDir/index.php."
 			fi
 		fi
 
@@ -75,7 +75,7 @@ if [ "$action" == 'create' ]
 			server {
 				listen 80;
         		server_name $domain www.$domain;
-        		return 301 https://\$$host\$$request_uri;
+        		return 301 https://\$host\$request_uri;
 			}
 			server {
 				listen 443 ssl;
@@ -167,12 +167,14 @@ if [ "$action" == 'create' ]
 
 		##Check if domain has a lets encrypt certificate.
 		if [ ! -d /etc/letsencrypt/live/$domain ]; then
-			echo -e $"Installing letsencrypt for domain."
-			export LC_ALL="en_US.UTF-8"
-			export LC_CTYPE="en_US.UTF-8"
-			cd /opt/letsencrypt
-			./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
-
+			read -r -p "Do you wanna install SSL to $domain? [y/N] " response
+			if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			    echo -e $"Installing letsencrypt for domain."
+				export LC_ALL="en_US.UTF-8"
+				export LC_CTYPE="en_US.UTF-8"
+				cd /opt/letsencrypt
+				./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
+			fi
 			if [ ! -d /etc/nginx/ssl ]; then
 			  	mkdir -p /etc/nginx/ssl
 			  	cd /etc/nginx/ssl
