@@ -57,7 +57,7 @@ if [ "$action" == 'create' ]
 		### check if directory exists or not
 		if ! [ -d $userDir$rootDir ]; then
 			### create the directory
-			mkdir $userDir$rootDir
+			mkdir -p $userDir$rootDir
 			### give permission to root dir
 			chmod 755 $userDir$rootDir
 			### write test file in the new domain dir
@@ -173,7 +173,7 @@ if [ "$action" == 'create' ]
 		./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
 
 		if [ ! -d /etc/nginx/ssl ]; then
-		  mkdir /etc/nginx/ssl
+		  mkdir -p /etc/nginx/ssl
 		fi
 		cd /etc/nginx/ssl
 		openssl dhparam -out dhparams.pem 2048
