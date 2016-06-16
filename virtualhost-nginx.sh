@@ -166,18 +166,22 @@ if [ "$action" == 'create' ]
 		service nginx stop
 
 		##Check if domain has a lets encrypt certificate.
-		echo -e $"Installing letsencrypt for domain."
-		export LC_ALL="en_US.UTF-8"
-		export LC_CTYPE="en_US.UTF-8"
-		cd /opt/letsencrypt
-		./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
+		if [ ! -d /etc/letsencrypt/live/$domain ]; then
+			echo -e $"Installing letsencrypt for domain."
+			export LC_ALL="en_US.UTF-8"
+			export LC_CTYPE="en_US.UTF-8"
+			cd /opt/letsencrypt
+			./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
 
-		if [ ! -d /etc/nginx/ssl ]; then
-		  mkdir -p /etc/nginx/ssl
+			if [ ! -d /etc/nginx/ssl ]; then
+			  	mkdir -p /etc/nginx/ssl
+			  	cd /etc/nginx/ssl
+				if [ ! -f /etc/nginx/ssl/dhparams.pem ]; then
+					openssl dhparam -out dhparams.pem 2048		
+				fi
+			fi
 		fi
-		cd /etc/nginx/ssl
-		openssl dhparam -out dhparams.pem 2048
-		service nginx reload
+		/etc/init.d/nginx start
 		nginx -t
 
 		### show the finished message
