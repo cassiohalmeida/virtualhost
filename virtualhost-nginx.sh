@@ -162,8 +162,8 @@ if [ "$action" == 'create' ]
 		### enable website
 		ln -s $sitesAvailable$domain $sitesEnable$domain
 
-		### restart Nginx
-		service nginx restart
+		### stop Nginx
+		service nginx stop
 
 		##Check if domain has a lets encrypt certificate.
 		echo -e $"Installing letsencrypt for domain."
