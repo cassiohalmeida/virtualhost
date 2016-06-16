@@ -29,6 +29,12 @@ do
 	read domain
 done
 
+while [ "$email" == "" ]
+do
+	echo -e $"Please provide a valid e-mail."
+	read email
+done
+
 if [ "$rootDir" == "" ]; then
 	rootDir=${domain//./}
 fi
@@ -159,6 +165,21 @@ if [ "$action" == 'create' ]
 		### restart Nginx
 		service nginx restart
 
+		##Check if domain has a lets encrypt certificate.
+		echo -e $"Installing letsencrypt for domain."
+		export LC_ALL="en_US.UTF-8"
+		export LC_CTYPE="en_US.UTF-8"
+		cd /opt/letsencrypt
+		./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
+
+		if [ ! -d /etc/nginx/ssl ]; then
+		  mkdir /etc/nginx/ssl
+		fi
+		cd /etc/nginx/ssl
+		openssl dhparam -out dhparams.pem 2048
+		service nginx reload
+		nginx -t
+
 		### show the finished message
 		echo -e $"Complete! \nYou now have a new Virtual Host \nYour new host is: http://$domain \nAnd its located at $userDir$rootDir"
 		exit;
@@ -202,29 +223,3 @@ if [ "$action" == 'create' ]
 		echo -e $"Complete!\nYou just removed Virtual Host $domain"
 		exit 0;
 fi
-
-echo -e $"Installing letsencrypt for domain."
-
-export LC_ALL="en_US.UTF-8"
-export LC_CTYPE="en_US.UTF-8"
-
-if [ ! -d /opt/letsencrypt ]; then
-	if which git >/dev/null; then
-	    echo -e $"Git was founded, continue ..."
-	else
-	    echo -e $"Git was not founded, try to install."
-	    apt-get -y install git bc
-	fi
-  	git clone https://github.com/letsencrypt/letsencrypt /opt/letsencrypt
-fi
-
-cd /opt/letsencrypt
-./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
-
-if [ ! -d /etc/nginx/ssl ]; then
-  mkdir /etc/nginx/ssl
-fi
-openssl dhparam -out dhparams.pem 2048
-service nginx reload
-nginx -t
-
