@@ -38,6 +38,143 @@ if [[ "$rootDir" =~ ^/ ]]; then
 	userDir=''
 fi
 
+function addvirtualhostwithssl {
+	### create virtual host rules file for SSL site.
+	if ! echo "
+		server {
+			listen 80;
+			server_name $domain www.$domain;
+			return 301 https://\$host\$request_uri;
+		}
+		server {
+			listen 443 ssl;
+			root $userDir$rootDir;
+			index index.php index.html index.htm;
+			server_name $domain www.$domain;
+
+			ssl_certificate /etc/letsencrypt/live/$domain/fullchain.pem;
+			ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;
+			ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+			ssl_prefer_server_ciphers on;
+			ssl_ciphers 'EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5';
+			ssl_dhparam /etc/nginx/ssl/dhparams.pem;
+			ssl_session_timeout 1d;
+			ssl_session_cache shared:SSL:50m;
+			ssl_stapling on;
+			ssl_stapling_verify on;
+			add_header Strict-Transport-Security max-age=15768000;
+
+			# serve static files directly
+			location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
+				access_log off;
+				expires max;
+			}
+
+			# removes trailing slashes (prevents SEO duplicate content issues)
+			if (!-d \$request_filename) {
+				rewrite ^/(.+)/\$ /\$1 permanent;
+			}
+
+			# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
+			if (!-e \$request_filename) {
+				rewrite ^/(.*)\$ /index.php?/\$1 last;
+				break;
+			}
+
+			# removes trailing 'index' from all controllers
+			if (\$request_uri ~* index/?\$) {
+				rewrite ^/(.*)/index/?\$ /\$1 permanent;
+			}
+
+			# catch all
+			error_page 404 /index.php;
+
+			location ~ \.php$ {
+				fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+				fastcgi_pass unix:/run/php/php7.0-fpm.sock;
+				fastcgi_index index.php;
+				include fastcgi_params;
+				fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+			}
+
+			location ~ /\.ht {
+				deny all;
+			}
+
+			location ~ /.well-known {
+	        	allow all;
+			}
+
+	}" > $sitesAvailable$domain
+	then
+		echo -e $"There is an ERROR create $domain file"
+		exit;
+	else
+		echo -e $"\nNew Virtual Host Created\n"
+	fi
+	echo -e $"Installing letsencrypt for domain."
+	export LC_ALL="en_US.UTF-8"
+	export LC_CTYPE="en_US.UTF-8"
+	cd /opt/letsencrypt
+	./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
+}
+
+function addvirtualhostwithoutssl {
+	### create virtual host rules file
+	if ! echo "
+		server {
+			listen 80;
+			root $userDir$rootDir;
+			index index.php index.html index.htm;
+			server_name $domain www.$domain;
+
+			# serve static files directly
+			location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
+				access_log off;
+				expires max;
+			}
+
+			# removes trailing slashes (prevents SEO duplicate content issues)
+			if (!-d \$request_filename) {
+				rewrite ^/(.+)/\$ /\$1 permanent;
+			}
+
+			# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
+			if (!-e \$request_filename) {
+				rewrite ^/(.*)\$ /index.php?/\$1 last;
+				break;
+			}
+
+			# removes trailing 'index' from all controllers
+			if (\$request_uri ~* index/?\$) {
+				rewrite ^/(.*)/index/?\$ /\$1 permanent;
+			}
+
+			# catch all
+			error_page 404 /index.php;
+
+			location ~ \.php$ {
+				fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+				fastcgi_pass unix:/run/php/php7.0-fpm.sock;
+				fastcgi_index index.php;
+				include fastcgi_params;
+				fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+			}
+
+			location ~ /\.ht {
+				deny all;
+			}
+
+
+	}" > $sitesAvailable$domain
+	then
+		echo -e $"There is an ERROR create $domain file"
+		exit;
+	else
+		echo -e $"\nNew Virtual Host Created\n"
+	fi
+}
+
 rootDir=$userDir$rootDir
 
 if [ "$action" == 'create' ]
@@ -76,141 +213,9 @@ if [ "$action" == 'create' ]
 			read -r -p "Do you wanna install SSL to $domain? [y/N] " response
 
 			if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]; then
-
-				### create virtual host rules file
-				if ! echo "
-					server {
-						listen 80;
-		        		server_name $domain www.$domain;
-		        		return 301 https://\$host\$request_uri;
-					}
-					server {
-						listen 443 ssl;
-						root $userDir$rootDir;
-						index index.php index.html index.htm;
-						server_name $domain www.$domain;
-
-						ssl_certificate /etc/letsencrypt/live/$domain/fullchain.pem;
-						ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;
-						ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-						ssl_prefer_server_ciphers on;
-						ssl_ciphers 'EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5';
-						ssl_dhparam /etc/nginx/ssl/dhparams.pem;
-						ssl_session_timeout 1d;
-						ssl_session_cache shared:SSL:50m;
-						ssl_stapling on;
-						ssl_stapling_verify on;
-						add_header Strict-Transport-Security max-age=15768000;
-
-						# serve static files directly
-						location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
-							access_log off;
-							expires max;
-						}
-
-						# removes trailing slashes (prevents SEO duplicate content issues)
-						if (!-d \$request_filename) {
-							rewrite ^/(.+)/\$ /\$1 permanent;
-						}
-
-						# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
-						if (!-e \$request_filename) {
-							rewrite ^/(.*)\$ /index.php?/\$1 last;
-							break;
-						}
-
-						# removes trailing 'index' from all controllers
-						if (\$request_uri ~* index/?\$) {
-							rewrite ^/(.*)/index/?\$ /\$1 permanent;
-						}
-
-						# catch all
-						error_page 404 /index.php;
-
-						location ~ \.php$ {
-							fastcgi_split_path_info ^(.+\.php)(/.+)\$;
-							fastcgi_pass unix:/run/php/php7.0-fpm.sock;
-							fastcgi_index index.php;
-							include fastcgi_params;
-							fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-						}
-
-						location ~ /\.ht {
-							deny all;
-						}
-
-						location ~ /.well-known {
-		                	allow all;
-		        		}
-
-				}" > $sitesAvailable$domain
-				then
-					echo -e $"There is an ERROR create $domain file"
-					exit;
-				else
-					echo -e $"\nNew Virtual Host Created\n"
-				fi
-			    echo -e $"Installing letsencrypt for domain."
-				export LC_ALL="en_US.UTF-8"
-				export LC_CTYPE="en_US.UTF-8"
-				cd /opt/letsencrypt
-				./letsencrypt-auto certonly --standalone --email $email -d $domain -d www.$domain
+				addvirtualhostwithssl
 			else
-
-				### create virtual host rules file
-				if ! echo "
-					server {
-						listen 80;
-						root $userDir$rootDir;
-						index index.php index.html index.htm;
-						server_name $domain www.$domain;
-
-						# serve static files directly
-						location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
-							access_log off;
-							expires max;
-						}
-
-						# removes trailing slashes (prevents SEO duplicate content issues)
-						if (!-d \$request_filename) {
-							rewrite ^/(.+)/\$ /\$1 permanent;
-						}
-
-						# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
-						if (!-e \$request_filename) {
-							rewrite ^/(.*)\$ /index.php?/\$1 last;
-							break;
-						}
-
-						# removes trailing 'index' from all controllers
-						if (\$request_uri ~* index/?\$) {
-							rewrite ^/(.*)/index/?\$ /\$1 permanent;
-						}
-
-						# catch all
-						error_page 404 /index.php;
-
-						location ~ \.php$ {
-							fastcgi_split_path_info ^(.+\.php)(/.+)\$;
-							fastcgi_pass unix:/run/php/php7.0-fpm.sock;
-							fastcgi_index index.php;
-							include fastcgi_params;
-							fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-						}
-
-						location ~ /\.ht {
-							deny all;
-						}
-
-
-				}" > $sitesAvailable$domain
-				then
-					echo -e $"There is an ERROR create $domain file"
-					exit;
-				else
-					echo -e $"\nNew Virtual Host Created\n"
-				fi
-
+				addvirtualhostwithoutssl
 			fi
 
 			if [ ! -d /etc/nginx/ssl ]; then
@@ -220,6 +225,8 @@ if [ "$action" == 'create' ]
 					openssl dhparam -out dhparams.pem 2048		
 				fi
 			fi
+		else
+			addvirtualhostwithoutssl
 		fi
 
 		### Add domain in /etc/hosts
