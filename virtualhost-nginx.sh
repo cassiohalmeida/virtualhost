@@ -226,7 +226,7 @@ if [ "$action" == 'create' ]
 				fi
 			fi
 		else
-			addvirtualhostwithoutssl
+			addvirtualhostwithssl
 		fi
 
 		### Add domain in /etc/hosts
