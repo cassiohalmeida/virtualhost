@@ -178,6 +178,7 @@ function addvirtualhostwithoutssl {
 rootDir=$userDir$rootDir
 
 if [ "$action" == 'create' ]
+	service nginx stop
 	then
 		### check if domain already exists
 		if [ -e $sitesAvailable$domain ]; then
@@ -246,9 +247,6 @@ if [ "$action" == 'create' ]
 
 		### enable website
 		ln -s $sitesAvailable$domain $sitesEnable$domain
-
-		### stop Nginx
-		service nginx stop
 
 		/etc/init.d/nginx start
 		nginx -t
